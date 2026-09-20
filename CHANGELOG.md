@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0.0
 
 - Enforce `timeoutMicros` across the complete HTTP operation, including reading
   the response body. Validation and JSON decoding remain outside the deadline.
