@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Accept probabilities rounded to two decimals, as returned by OpenRouter.
+  Distribution sums now tolerate `0.005` per returned probability, the selected
+  Choice may trail another option by a rounded tie (`0.01`), and Score checks
+  allow for rounded probabilities. Values are still not renormalized; clearly
+  invalid distributions are still rejected.
+- Add `renderJevError`, a log-friendly rendering of `JevError` with the
+  constructor, status code, request ID, and message or truncated body. Unlike
+  `show`, it never includes response headers such as `Set-Cookie`.
+
 ## 0.1.0.0
 
 - Enforce `timeoutMicros` across the complete HTTP operation, including reading

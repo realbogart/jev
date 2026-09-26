@@ -158,7 +158,7 @@ OpenRouter. Defaults send no extra fields.
 
 Question construction is pure; validation happens before any HTTP request. An entirely `pure` question or empty traversal contains no questions and is rejected. Choice accepts 1–255 options with unique wire labels; Score accepts 2–10 levels. No typeclass instances are required for Choice domain values.
 
-Results expose constructors for pattern matching. Choice distributions pair domain values with probabilities in the supplied option order. Score distributions and legends use `IntMap`; supplied sparse distributions are preserved. The decoder checks finite probabilities in [0,1], distribution sums within `0.001` of one, a maximal selected Choice probability within `0.001`, and a Score within `0.001 * numberOfLevels` of its probability-weighted value. Legends must cover every returned probability index. Values are never renormalized or filled in. Confidence is retained as a separate provider measure in [0,1], not recomputed from the distribution. Public constructors allow manually created values that bypass these checks.
+Results expose constructors for pattern matching. Choice distributions pair domain values with probabilities in the supplied option order. Score distributions and legends use `IntMap`; supplied sparse distributions are preserved. The decoder checks finite probabilities in [0,1] and tolerates providers that round them to two decimals, as OpenRouter does: distribution sums within `0.001 + 0.005 * numberOfReturnedProbabilities` of one, a maximal selected Choice probability within `0.011` (a rounded tie), and a Score within `0.001 * numberOfLevels + 0.005 * (1 + sumOfReturnedIndices)` of its probability-weighted value. Legends must cover every returned probability index. Values are never renormalized or filled in. Confidence is retained as a separate provider measure in [0,1], not recomputed from the distribution. Public constructors allow manually created values that bypass these checks.
 
 `Response`, `Choice`, `Option`, `JsonOption`, and `NoulCriteria` have `Functor`
 instances. Mapping a `Choice` transforms both the selection and the values in its
@@ -202,6 +202,10 @@ Failures distinguish validation, transport, HTTP status, and decoding:
 - `ResponseDecodeError metadata message`: a 2xx response could not be decoded;
   the same metadata is retained, including the body ID when readable or header ID.
 - `DecodeError message`: decoding a fixture through `decodeResponse` failed.
+
+`renderJevError err` produces log-friendly `Text` with the constructor, status code,
+request ID, and message or body (truncated to 500 bytes). It never includes
+response headers such as `Set-Cookie`, unlike `show err`, which prints them in full.
 
 Asynchronous cancellation propagates normally. Exceptions from custom manager
 hooks or user functions mapped over questions are not generally converted to

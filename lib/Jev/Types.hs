@@ -18,13 +18,17 @@ module Jev.Types
     ResponseMetadata (..),
     TransportFailure (..),
     JevError (..),
+    renderJevError,
   )
 where
 
 import Data.Aeson (Value)
 import Data.ByteString.Lazy qualified as LBS
 import Data.IntMap.Strict (IntMap)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
+import Data.Text qualified as T
+import Data.Text.Encoding (decodeUtf8Lenient)
 import Network.HTTP.Types.Header (ResponseHeaders)
 
 -- | The gateway used for validation and the default endpoint.
@@ -205,3 +209,19 @@ data JevError
   | -- | A successful HTTP response contained an invalid answer.
     ResponseDecodeError ResponseMetadata Text
   deriving (Eq, Show)
+
+-- | Log-friendly description with the constructor, status code, request ID, and
+-- message or body (truncated to 500 bytes). Never includes response headers.
+-- Error bodies are server-controlled and may still contain sensitive data.
+renderJevError :: JevError -> Text
+renderJevError err = case err of
+  ValidationError message -> "ValidationError: " <> message
+  TransportError failure -> "TransportError: " <> T.pack (show failure)
+  HttpError metadata body -> "HttpError" <> context metadata <> ": " <> truncated body
+  DecodeError message -> "DecodeError: " <> message
+  ResponseDecodeError metadata message -> "ResponseDecodeError" <> context metadata <> ": " <> message
+  where
+    context metadata = " (status " <> T.pack (show metadata.statusCode) <> ", request ID " <> fromMaybe "unknown" metadata.requestId <> ")"
+    truncated body
+      | LBS.length body > 500 = decodeUtf8Lenient (LBS.toStrict (LBS.take 500 body)) <> "... (truncated)"
+      | otherwise = decodeUtf8Lenient (LBS.toStrict body)

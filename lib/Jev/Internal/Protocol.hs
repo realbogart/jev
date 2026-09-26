@@ -81,8 +81,12 @@ probabilityParser x
 probabilityTolerance :: Double
 probabilityTolerance = 1e-3
 
+-- Maximum error of one probability rounded to two decimals, as OpenRouter returns them.
+roundingTolerance :: Double
+roundingTolerance = 5e-3
+
 distribution :: [Double] -> Parser ()
-distribution values = unless (abs (sum values - 1) <= probabilityTolerance) (fail "Probabilities must sum to approximately one")
+distribution values = unless (abs (sum values - 1) <= probabilityTolerance + roundingTolerance * fromIntegral (length values)) (fail "Probabilities must sum to approximately one")
 
 choiceQuestion :: Value -> [JsonOption a] -> Question (Choice a)
 choiceQuestion instructions options = primitive "choice" instructions (Just criteria) check $ \o -> do
@@ -100,7 +104,7 @@ choiceQuestion instructions options = primitive "choice" instructions (Just crit
       options
   distribution (map snd probabilities)
   selectedProbability <- maybe (fail "Missing selected probability") pure (Map.lookup label values)
-  unless (all (\p -> p <= selectedProbability + probabilityTolerance) (Map.elems values)) (fail "Selected choice is not a highest-probability option")
+  unless (all (\p -> p <= selectedProbability + probabilityTolerance + 2 * roundingTolerance) (Map.elems values)) (fail "Selected choice is not a highest-probability option")
   pure (Choice selected confidence probabilities)
   where
     mapping = Map.fromList [(key, a) | JsonOption a key _ <- options]
@@ -122,7 +126,9 @@ scoreQuestion instructions levels = primitive "score" instructions (Just (toJSON
   distribution (IM.elems probabilities)
   unless (all (`IM.member` legend) (IM.keys probabilities)) (fail "Score legend is missing probability indices")
   let expected = sum [fromIntegral i * p | (i, p) <- IM.toList probabilities]
-  unless (abs (score - expected) <= probabilityTolerance * fromIntegral (length levels)) (fail "Score does not match its probability-weighted rubric")
+      -- The score and each index-weighted probability may carry a rounding error.
+      roundingError = roundingTolerance * (1 + fromIntegral (sum (IM.keys probabilities)))
+  unless (abs (score - expected) <= probabilityTolerance * fromIntegral (length levels) + roundingError) (fail "Score does not match its probability-weighted rubric")
   pure (Score score confidence probabilities legend)
   where
     check _ = do

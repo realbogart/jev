@@ -212,6 +212,27 @@ spec = do
       decodeFixture rubric (replace "score" (Number 0) scoreAnswer) `shouldSatisfy` isDecodeError
       decodeFixture rubric (replace "legend" (object []) scoreAnswer) `shouldSatisfy` isDecodeError
       fmap (\r -> r.answers.probabilities) (decodeFixture rubric scoreAnswer) `shouldBe` Right (IM.fromList [(1, 0.6), (2, 0.4)])
+    it "accepts distributions rounded to two decimals and rejects clearly invalid ones" $ do
+      let letters n = choice "Pick" [Option c (T.singleton c) Nothing | c <- take n ['a' ..]]
+          rounded selected values = object ["type" .= ("choice" :: Text), "choice" .= selected, "confidence" .= (0.5 :: Double), "probabilities" .= object values]
+          decodeFixture question value = do
+            prepared <- prepareRequest OpenRouter "model" (String "State") question
+            fmap (\r -> r.answers.choice) (decodeResponse prepared (encode (envelope (object ["q0" .= value]))))
+      decodeFixture (letters 3) (rounded ("a" :: Text) ["a" .= (0.33 :: Double), "b" .= (0.33 :: Double), "c" .= (0.33 :: Double)]) `shouldBe` Right 'a'
+      decodeFixture (letters 4) (rounded ("a" :: Text) ["a" .= (0.26 :: Double), "b" .= (0.25 :: Double), "c" .= (0.25 :: Double), "d" .= (0.25 :: Double)]) `shouldBe` Right 'a'
+      decodeFixture (letters 3) (rounded ("a" :: Text) ["a" .= (0.36 :: Double), "b" .= (0.37 :: Double), "c" .= (0.27 :: Double)]) `shouldBe` Right 'a'
+      decodeFixture route (rounded ("billing" :: Text) ["billing" .= (0.85 :: Double), "technical" .= (0.05 :: Double)]) `shouldSatisfy` isDecodeError
+      decodeFixture route (rounded ("billing" :: Text) ["billing" .= (0.9 :: Double), "technical" .= (0.3 :: Double)]) `shouldSatisfy` isDecodeError
+      decodeFixture (letters 3) (rounded ("a" :: Text) ["a" .= (0.34 :: Double), "b" .= (0.36 :: Double), "c" .= (0.3 :: Double)]) `shouldSatisfy` isDecodeError
+  describe "error rendering" $ do
+    it "includes status, request ID, and message but never headers" $ do
+      let metadata = ResponseMetadata 503 [("Set-Cookie", "session=secret-cookie"), ("x-typesafe-request-id", "req-1")] (Just "req-1")
+          httpText = renderJevError (HttpError metadata "upstream unavailable")
+          decodeText = renderJevError (ResponseDecodeError metadata "Error in $.q0: Probabilities must sum to approximately one")
+      httpText `shouldBe` "HttpError (status 503, request ID req-1): upstream unavailable"
+      decodeText `shouldBe` "ResponseDecodeError (status 503, request ID req-1): Error in $.q0: Probabilities must sum to approximately one"
+      mapM_ (\rendered -> rendered `shouldSatisfy` (not . T.isInfixOf "secret-cookie")) [httpText, decodeText]
+      T.length (renderJevError (HttpError metadata (LBS.replicate 10000 120))) `shouldSatisfy` (< 600)
     it "retains retry headers and request IDs on HTTP and decoding failures" $ do
       let app status body _ respond = respond (responseLBS status [("Retry-After", "7"), ("x-typesafe-request-id", "header-id")] body)
       failed <- withServer (app status429 "limited") $ \client -> decide client "State" (noul "Yes?")
