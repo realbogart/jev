@@ -10,7 +10,10 @@ The supported and tested compiler is **GHC 9.10.1** (`base-4.20`). Dependency
 bounds currently target that tested environment; other compiler versions have
 not been verified. You can use Cabal directly; Nix is optional for consumers.
 
-To consume a local checkout, place it beside your application and use this
+Jev is published on [Hackage](https://hackage.haskell.org/package/jev): add
+`jev` to your `build-depends`, as in the example below, and run `cabal update`.
+
+To instead consume a local checkout, place it beside your application and use this
 `cabal.project` in the application directory:
 
 ```cabal
@@ -31,7 +34,7 @@ build-type: Simple
 
 executable jev-demo
     main-is: Main.hs
-    build-depends: base >= 4.20 && < 4.21, text >= 2.1 && < 2.2, jev == 0.1.0.0
+    build-depends: base >= 4.20 && < 4.21, text >= 2.1 && < 2.2, jev ^>= 0.1.1.0
     default-language: GHC2021
     default-extensions: OverloadedStrings, OverloadedRecordDot
 ```

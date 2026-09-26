@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1.0
 
 - Accept probabilities rounded to two decimals, as returned by OpenRouter.
   Distribution sums now tolerate `0.005` per returned probability, the selected
